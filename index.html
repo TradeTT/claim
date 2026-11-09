@@ -184,26 +184,42 @@ function validEmail(e) {
   return d.includes('.') && !d.startsWith('.') && !d.endsWith('.') && p[0].length > 0;
 }
 
+// Talks to the Apps Script web app. First choice: a normal fetch() request.
+// If fetch is blocked or fails, falls back to the older script-tag (JSONP) method.
 function api(params, done) {
+  const qs = Object.entries(params).map(([k,v]) => k+'='+encodeURIComponent(v)).join('&');
+  const url = SCRIPT_URL + '?' + qs;
+  let finished = false;
+  const finish = r => { if (finished) return; finished = true; clearTimeout(tid); done(r); };
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const tid = setTimeout(() => { if (ctrl) ctrl.abort(); finish(null); }, 45000);
+
+  if (typeof fetch !== 'function') { apiJsonp(params, finish); return; }
+
+  fetch(url, { method: 'GET', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined })
+    .then(r => r.text())
+    .then(t => {
+      let j = null;
+      try { j = JSON.parse(t); } catch (e) { console.error('[TradeTT] Unexpected reply from server:', String(t).slice(0, 200)); }
+      if (j) finish(j); else apiJsonp(params, finish);
+    })
+    .catch(err => {
+      console.warn('[TradeTT] fetch failed, trying fallback method:', err);
+      if (!finished) apiJsonp(params, finish);
+    });
+}
+
+// Older method (script tag). Kept as a fallback.
+function apiJsonp(params, done) {
   const name = '__lz' + (++cbCounter) + '_' + Date.now();
   const qs = Object.entries(params).map(([k,v]) => k+'='+encodeURIComponent(v)).join('&');
   const sid = 'lzs_' + cbCounter;
-
-  const tid = setTimeout(() => {
-    delete window[name];
-    const s = document.getElementById(sid); if(s) s.remove();
-    done(null);
-  }, 30000);
-
-  window[name] = r => {
-    clearTimeout(tid);
-    delete window[name];
-    const s = document.getElementById(sid); if(s) s.remove();
-    done(r);
-  };
-
+  const cleanup = () => { delete window[name]; const s = document.getElementById(sid); if (s) s.remove(); };
+  const jt = setTimeout(() => { cleanup(); console.error('[TradeTT] No reply from server (fallback method timed out)'); done(null); }, 30000);
+  window[name] = r => { clearTimeout(jt); cleanup(); done(r); };
   const sc = document.createElement('script');
   sc.id = sid;
+  sc.onerror = () => console.error('[TradeTT] The browser could not load the server reply (blocked?)');
   sc.src = SCRIPT_URL + '?' + qs + '&callback=' + name;
   document.body.appendChild(sc);
 }
