@@ -168,6 +168,7 @@ const ERRORS = {
   file_too_large:{ t:'fail',   i:'⚠️', h:'Something Went Wrong',  m:`There was an issue processing your order. ${CS}` },
   send_failed:   { t:'fail',   i:'⚠️', h:'Something Went Wrong',  m:`There was an issue sending your order. ${CS}` },
   server_error:  { t:'fail',   i:'⚠️', h:'Something Went Wrong',  m:`An unexpected error occurred. ${CS}` },
+  need_google_email:{ t:'warning', i:'📧', h:'Gmail Address Needed', m:`Your video course is shared privately with a <strong>Google account</strong>, so please enter your <strong>Gmail address</strong> (ending in @gmail.com).` },
   _timeout:      { t:'fail',   i:'⏱️', h:'Request Timed Out',     m:`Please try again. ${CS}` },
   _default:      { t:'fail',   i:'⚠️', h:'Something Went Wrong',  m:`An unexpected error occurred. ${CS}` },
 };
@@ -271,7 +272,7 @@ function submitOrderId() {
   api({ orderId: ORDER_ID, checkOnly: 'true' }, r => {
     if (!r) { stepOrderId('_timeout'); return; }
     if (r.error === 'not_ready') { stepCountdown(r.secondsLeft, r.bookCount, r.readyAt); }
-    else if (r.error === 'ready') { stepEmail(); }
+    else if (r.error === 'ready') { stepEmail(!!r.gmailOnly); }
     else if (r.error === 'cancelled') { stepCancelled(); }
     else if (r.error === 'already_sent') { stepAlreadySent(); }
     else if (r.error === 'not_found') { stepNotFound(); }
@@ -346,7 +347,7 @@ function stepCancelled() {
 }
 
 // ════ STEP 2c: Ready + Email ════
-function stepEmail() {
+function stepEmail(gmailOnly) {
   render(`
     <div class="lz-alert success" style="margin-bottom:20px">
       <span class="lz-alert-icon">✅</span>
@@ -357,8 +358,10 @@ function stepEmail() {
       <label class="lz-label">Your Email Address</label>
       <input class="lz-input" id="eml" type="email" placeholder="you@example.com" autocomplete="off" />
       <div class="lz-err-msg" id="emlErr">Please enter a valid email (e.g. you@gmail.com).</div>
-      <p class="lz-hint">Your course link / ebook will be sent to this address.</p>
-      <p class="lz-hint" style="color:var(--warning);margin-top:6px">⚠️ Please use a <strong>regular email</strong> (Gmail, Yahoo, Outlook, etc.) — <strong>not a student email</strong>. Student emails may block links and attachments.</p>
+      <p class="lz-hint">Your course access / ebook will be sent to this address.</p>
+      ${gmailOnly
+        ? `<p class="lz-hint" style="color:var(--warning);margin-top:6px">⚠️ Video courses are shared privately with a Google account. Please use your <strong>Gmail address</strong> (@gmail.com), <strong>not a student email</strong>.</p>`
+        : `<p class="lz-hint" style="color:var(--warning);margin-top:6px">⚠️ Please use a <strong>regular email</strong> (Gmail, Yahoo, Outlook, etc.) — <strong>not a student email</strong>. Student emails may block links and attachments.</p>`}
     </div>
     <button class="lz-btn" onclick="submitEmail()">Continue</button>
   `);
@@ -422,6 +425,10 @@ function submitSend() {
       `);
     } else if (r.error === 'cancelled') {
       stepCancelled();
+    } else if (r.error === 'need_google_email') {
+      const err = ERRORS.need_google_email;
+      render(`<div class="lz-alert ${err.t}"><span class="lz-alert-icon">${err.i}</span><span class="lz-alert-title">${err.h}</span>${err.m}</div>
+        <button class="lz-btn" style="margin-top:12px" onclick="stepEmail(true)">Enter a Gmail address</button>`);
     } else {
       const err = ERRORS[r.error] || ERRORS._default;
       render(`<div class="lz-alert ${err.t}"><span class="lz-alert-icon">${err.i}</span><span class="lz-alert-title">${err.h}</span>${err.m}</div>${backBtn()}`);
