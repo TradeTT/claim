@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light dark">
 <title>Claim Your Order</title>
+<link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -74,7 +75,8 @@
 
   /* brand */
   .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
-  .brand img { height: 36px; width: auto; max-width: 140px; object-fit: contain; }
+  .brand img { height: 92px; width: auto; max-width: 200px; object-fit: contain; display: block; }
+  .brand.has-logo { margin-bottom: 22px; }
   .brand-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
   .mark { width: 48px; height: 38px; flex: none; }
   .mark .wick { stroke: var(--ink-3); stroke-width: 1.6; stroke-linecap: round; }
@@ -187,7 +189,7 @@
       <g class="c"><line class="wick" x1="23" y1="5" x2="23" y2="24"/><rect class="body" x="20.5" y="9" width="5" height="10" rx="1.2"/></g>
       <g class="c up"><line class="wick" x1="32" y1="1" x2="32" y2="20"/><rect class="body" x="29.5" y="4" width="5" height="11" rx="1.2"/></g>
     </svg>
-    <img id="shopLogo" src="" alt="" style="display:none" />
+    <picture id="shopLogoPic" style="display:none"><source id="shopLogoDark" media="(prefers-color-scheme: dark)" srcset=""><img id="shopLogo" src="" alt=""></picture>
     <div class="brand-name" id="shopName"></div>
   </div>
 
@@ -223,9 +225,9 @@ const CONFIG = {
   // Example: "https://shopee.com.my/yourshopname"
   SHOPEE_SHOP_URL: "https://shopee.com.my/tradett",
 
-  // INSERT YOUR LOGO FILE NAME HERE. Upload the logo next to this file (e.g. logo.png).
-  // Leave as "" to show the built-in candlestick mark instead.
-  LOGO_URL: ""
+  // YOUR LOGO. Upload these files next to this one. Leave LOGO_URL as "" to show the candlestick mark instead.
+  LOGO_URL: "logo-light.png",       // used on the light grey page
+  LOGO_URL_DARK: "logo-dark.png"    // used when the visitor's phone is in dark mode (optional)
 };
 // ═══════════════════════════════════════════════════════════
 
@@ -242,9 +244,20 @@ document.getElementById('shopName').textContent = NAME_SET ? CONFIG.SHOP_NAME : 
 document.title = (NAME_SET ? CONFIG.SHOP_NAME + ' - ' : '') + 'Claim Your Order';
 if (CONFIG.LOGO_URL) {
   const lg = document.getElementById('shopLogo');
-  lg.src = CONFIG.LOGO_URL; lg.alt = CONFIG.SHOP_NAME; lg.style.display = '';
+  lg.alt = CONFIG.SHOP_NAME;
+  // if the logo file is missing, fall back to the built-in mark + shop name instead of a broken image
+  lg.onerror = () => {
+    document.getElementById('shopLogoPic').style.display = 'none';
+    document.getElementById('shopMark').style.display = '';
+    document.getElementById('shopName').style.display = '';
+    document.querySelector('.brand').classList.remove('has-logo');
+  };
+  lg.src = CONFIG.LOGO_URL;
+  document.getElementById('shopLogoDark').srcset = CONFIG.LOGO_URL_DARK || CONFIG.LOGO_URL;
+  document.getElementById('shopLogoPic').style.display = '';
   document.getElementById('shopMark').style.display = 'none';
-  if (NAME_SET) document.getElementById('shopName').style.display = 'none'; // the logo already says the name
+  document.getElementById('shopName').style.display = 'none'; // the logo already says the name
+  document.querySelector('.brand').classList.add('has-logo');
 }
 document.getElementById('csLink').href = SHOP;
 
